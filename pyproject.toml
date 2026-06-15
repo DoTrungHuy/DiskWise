@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diskwise"
+version = "0.1.0"
+description = "Local-first intelligent file organization desktop application"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [
+    { name = "DoTrungHuy" },
+]
+dependencies = [
+    "httpx>=0.27,<1",
+    "platformdirs>=4.3,<5",
+    "pydantic>=2.9,<3",
+    "PySide6-Essentials>=6.8,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-qt>=4.4,<5",
+]
+
+[project.scripts]
+diskwise = "diskwise.main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]

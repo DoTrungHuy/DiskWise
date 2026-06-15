@@ -1,0 +1,32 @@
+# Local secrets
+.env
+
+# Virtual environments
+.venv/
+venv/
+
+# Python caches and build output
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# IDE and operating-system files
+.idea/
+.DS_Store
+Thumbs.db
+
+# Development runtime data
+data/*.db
+data/*.db-*
+data/vectors/*
+!data/vectors/.gitkeep
+data/cache/*
+!data/cache/.gitkeep
+data/logs/*
+!data/logs/.gitkeep
+
