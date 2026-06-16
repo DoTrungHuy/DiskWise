@@ -37,6 +37,22 @@ def test_scanner_indexes_files_without_following_symlink(tmp_path):
     assert "link.txt" not in names
 
 
+def test_scanner_skips_development_directories_by_default(tmp_path):
+    root = tmp_path / "scan-root"
+    root.mkdir()
+    (root / "note.txt").write_text("hello", encoding="utf-8")
+    venv = root / ".venv"
+    venv.mkdir()
+    (venv / "dependency.py").write_text("should be skipped", encoding="utf-8")
+    cache = root / "__pycache__"
+    cache.mkdir()
+    (cache / "module.pyc").write_bytes(b"cache")
+
+    files = list(FileScanner().scan(root))
+
+    assert {metadata.name for metadata in files} == {"note.txt"}
+
+
 def test_scan_results_can_be_saved_to_sqlite(tmp_path):
     root = tmp_path / "scan-root"
     root.mkdir()

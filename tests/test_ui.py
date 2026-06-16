@@ -35,11 +35,16 @@ def test_scan_page_can_scan_temp_folder(qtbot, tmp_path):
     page = ScanPage(database_path)
     qtbot.addWidget(page)
 
-    count = page.scan_folder(root)
+    page.scan_folder(root)
 
-    assert count == 1
+    qtbot.waitUntil(
+        lambda: page.status_label.text() == "扫描完成：1 个文件",
+        timeout=5000,
+    )
     assert page.table.rowCount() == 1
     assert page.table.item(0, 1).text() == "压缩包"
+    assert page.scan_button.isEnabled()
+    assert not page.cancel_button.isEnabled()
 
 
 def test_settings_page_lists_multiple_discovered_models(qtbot, tmp_path):
