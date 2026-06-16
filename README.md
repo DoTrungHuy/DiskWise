@@ -1,104 +1,112 @@
+<div align="center">
+
 # DiskWise
 
-> 本地优先、模型可切换、默认安全的智能文件整理桌面应用。
+### 🧭 Local-first AI File Organizer
+
+**把混乱的下载目录、课程资料、截图、安装包和工作文档，整理成可搜索、可预览、可撤销的智能文件工作台。**
 
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![UI](https://img.shields.io/badge/UI-PySide6-41CD52?logo=qt&logoColor=white)](https://doc.qt.io/qtforpython-6/)
-[![Database](https://img.shields.io/badge/Database-SQLite-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
-[![AI](https://img.shields.io/badge/AI-Ollama%20%2B%20Cloud-111827)](https://ollama.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PySide6](https://img.shields.io/badge/Desktop-PySide6-41CD52?logo=qt&logoColor=white)](https://doc.qt.io/qtforpython-6/)
+[![SQLite](https://img.shields.io/badge/Storage-SQLite-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Ollama](https://img.shields.io/badge/Local_AI-Ollama-111827)](https://ollama.com/)
+[![Cloud API](https://img.shields.io/badge/Cloud-OpenAI_Compatible-0EA5E9)](docs/ai-providers.md)
+[![License](https://img.shields.io/badge/License-MIT-FACC15)](LICENSE)
 
-DiskWise 面向长期积累了大量下载文件、课程资料、图片截图、安装包和工作文档的用户。
-它希望把“找文件、看文件、分类文件、整理文件”做成一个可预览、可确认、可撤销的桌面工作流。
-
-项目优先使用本地 Ollama 模型，例如 Gemma，也支持可选的 OpenAI 兼容云端 API。
-用户可以为不同任务选择不同模型：分类用一个模型，命名用另一个模型，图片理解和语义搜索也可以分别配置。
-
-核心原则很简单：
-
-> AI 负责理解和建议，程序负责校验和执行，用户保留最终决定权。
+</div>
 
 ---
 
-## 功能全景
+## ✨ 项目定位
 
-| 能力 | 说明 |
-|---|---|
-| 智能文件分类 | 结合扩展名规则、文件元数据、内容摘要和 AI 理解，判断文件类别 |
-| 智能重命名 | 根据文档标题、截图内容、课程信息或安装包信息生成更清楚的文件名 |
-| 图片理解 | 识别截图、票据、报错、课件和照片内容，用于分类和命名 |
-| 语义搜索 | 用 Embedding 模型按含义搜索文件，而不只依赖关键词 |
-| 重复文件检测 | 通过大小、快速哈希和完整哈希识别重复文件 |
-| 大文件分析 | 找出占空间的安装包、视频、压缩包和历史下载内容 |
-| 整理计划预览 | 在真正移动或重命名前展示“原位置 → 新位置”的完整对比 |
-| 安全执行 | 用户确认后才执行文件操作，并记录撤销信息 |
-| 本地模型优先 | 默认通过 Ollama 调用本机模型，减少隐私风险 |
-| 云端模型可选 | 可接入 OpenAI 兼容 API，但必须由用户显式启用 |
-
----
-
-## 特点优势
-
-### 本地优先
-
-DiskWise 的默认路线是本地运行：
-
-- 文件内容优先留在电脑上。
-- 本地 Ollama 模型无需云端 API Key。
-- 模型可以是 Gemma，也可以是其他 Ollama 模型。
-- 适合课程资料、个人文件、截图和下载目录整理。
-
-### 多模型可切换
-
-DiskWise 不把模型写死在代码里。不同任务可以选择不同模型：
+DiskWise 是一个面向 Windows 桌面的智能文件整理应用。它的目标不是简单地“批量移动文件”，而是建立一套完整的文件理解流程：
 
 ```text
-文件分类   → gemma4:e2b
-智能命名   → gemma4:e4b / 其他文本模型
-图片理解   → 支持视觉输入的模型
-语义搜索   → Embedding 模型
+扫描文件 → 提取信息 → 规则判断 → AI 理解 → 生成计划 → 安全预览 → 用户确认 → 执行并可撤销
 ```
 
-未来如果用户更换本地模型或接入云端 API，业务层不需要重写。
+项目优先使用本地 Ollama 模型，例如 Gemma，也预留 OpenAI 兼容云端 API。用户可以为不同任务选择不同模型，让分类、命名、图片理解和语义搜索各自使用最合适的能力。
 
-### 安全优先
-
-DiskWise 不让 AI 直接碰文件系统：
-
-- AI 只返回结构化建议。
-- 程序负责路径映射和安全检查。
-- 用户确认后才执行。
-- 文件变化后计划自动失效。
-- 删除默认进入回收站。
-- 操作日志用于撤销。
-
-### 桌面应用体验
-
-项目选择 PySide6，是为了做成真正的 Windows 桌面工具：
-
-- 选择目录。
-- 查看扫描进度。
-- 表格展示文件。
-- 对比整理前后路径。
-- 勾选确认操作。
-- 设置本地或云端模型。
-
-### 适合学习和二次开发
-
-DiskWise 使用模块化单体结构，适合 Python 学习者逐步理解：
-
-- `scanner/` 学文件遍历。
-- `database/` 学 SQLite。
-- `rules/` 学确定性分类。
-- `ai/` 学 Ollama 和云端 API。
-- `ui/` 学 PySide6 桌面界面。
-- `safety/` 学文件操作边界。
+> **核心原则：AI 负责理解和建议，DiskWise 负责校验和执行，用户保留最终决定权。**
 
 ---
 
-## 适用场景
+## 🧩 功能蓝图
 
-### 下载目录整理
+| 模块 | 能力 | 价值 |
+|---|---|---|
+| 🗂️ 文件扫描 | 授权目录扫描、元数据读取、保护目录排除 | 先建立清晰、可查询的文件索引 |
+| 🧠 智能分类 | 扩展名规则 + 内容摘要 + AI 分类 | 区分课程资料、安装包、截图、文档和压缩包 |
+| ✍️ 智能命名 | 根据文件内容生成建议名称 | 把 `新建文档(7).pdf` 变成更可读的文件名 |
+| 🖼️ 图片理解 | 理解截图、票据、课件、报错图片 | 给截图和图片生成有意义的分类和名称 |
+| 🔎 语义搜索 | Embedding 向量搜索 + 关键词搜索 | 用“找上学期 SQL 实验报告”这类自然语言找文件 |
+| 🧬 重复检测 | 大小、快速哈希、完整哈希 | 找出重复下载、重复截图和重复压缩包 |
+| 📦 大文件分析 | 按大小、类型、时间筛选 | 快速定位占空间的安装包、视频和旧文件 |
+| 🧾 整理计划 | 移动、重命名、归档建议 | 执行前看到完整变化，不盲目改文件 |
+| 🛡️ 安全执行 | 用户确认、路径校验、撤销日志 | 降低误删、误移、误传云端的风险 |
+| ⚙️ 多模型配置 | 本地模型和云端 API 按任务选择 | 不绑定单一模型，不锁死技术路线 |
+
+---
+
+## 🌟 特点优势
+
+### 🏠 本地优先
+
+- 默认使用本机 Ollama。
+- 文件内容优先留在本地。
+- 不需要默认上传到云端。
+- 适合个人资料、课程文档、截图和下载目录整理。
+
+### 🔀 多模型可切换
+
+DiskWise 不把模型写死在代码中。不同任务可以绑定不同模型：
+
+| 任务 | 推荐模型类型 |
+|---|---|
+| 文件分类 | 本地文本模型，例如 `gemma4:e2b` |
+| 智能命名 | 更强文本模型，例如 `gemma4:e4b` 或其他 Ollama 模型 |
+| 图片理解 | 支持视觉输入的多模态模型 |
+| 语义搜索 | Embedding 模型 |
+| 云端增强 | OpenAI 兼容 API |
+
+### 🧱 模块化单体
+
+第一阶段不拆微服务，而是采用清晰的模块化单体：
+
+- 更容易调试。
+- 更适合桌面应用。
+- 更适合学习 Python 工程结构。
+- 后续仍可按模块拆分。
+
+### 🧯 安全边界清楚
+
+- AI 不直接操作文件。
+- 云端 API 默认关闭。
+- 文件操作必须先生成计划。
+- 用户确认后才执行。
+- 操作日志用于撤销。
+- 不请求管理员权限。
+
+### 🎓 适合学习
+
+这个项目能串起一条完整学习路线：
+
+```text
+Python 基础
+→ pathlib 文件处理
+→ SQLite 数据库
+→ PySide6 桌面界面
+→ Pydantic 数据校验
+→ Ollama 本地模型 API
+→ Embedding 语义搜索
+→ 安全文件操作
+```
+
+---
+
+## 🖼️ 使用场景
+
+### 场景一：下载目录整理
 
 ```text
 D:\Downloads
@@ -109,9 +117,9 @@ D:\Downloads
 └─ 课程资料最终版.docx
 ```
 
-DiskWise 可以帮助识别安装包、课程资料、截图、压缩包和重复文件，并生成整理建议。
+DiskWise 可以识别安装包、课程资料、截图、压缩包和重复文件，并生成整理建议。
 
-### 课程资料归档
+### 场景二：课程资料归档
 
 ```text
 数据库系统原理实验三.pdf
@@ -119,7 +127,7 @@ DiskWise 可以帮助识别安装包、课程资料、截图、压缩包和重�
 概率论复习资料.pdf
 ```
 
-AI 可以根据文件名和内容摘要建议：
+整理建议示例：
 
 ```text
 课程资料/数据库/数据库系统原理-实验三.pdf
@@ -127,71 +135,66 @@ AI 可以根据文件名和内容摘要建议：
 课程资料/数学/概率论-复习资料.pdf
 ```
 
-### 截图和报错整理
+### 场景三：截图和报错命名
 
 ```text
 Screenshot_2026-06-13.png
+→ Python-PySide6-ModuleNotFoundError.png
 ```
 
-图片理解可以识别截图里的 IDE、错误信息和上下文，生成更有意义的名称：
-
-```text
-Python-PySide6-ModuleNotFoundError.png
-```
-
-### 按语义找文件
-
-用户可以搜索：
+### 场景四：自然语言找文件
 
 ```text
 找上学期写的 SQL 实验报告
+找去年下载的大于 500MB 的安装包
+找和 PySide6 报错有关的截图
 ```
-
-语义搜索不只看文件名，而是根据文档含义找到相关资料。
 
 ---
 
-## 系统架构
+## 🏗️ 系统架构
 
 ```mermaid
 flowchart TD
-    UI["PySide6 桌面界面"] --> APP["应用服务层"]
+    UI["🖥️ PySide6 桌面界面"] --> APP["🧭 应用服务层"]
 
-    APP --> SCAN["文件扫描器"]
-    APP --> SEARCH["搜索服务"]
-    APP --> PLAN["整理计划生成器"]
-    APP --> DB["SQLite 数据库"]
-    APP --> SAFE["安全策略"]
+    APP --> SCAN["🗂️ 文件扫描器"]
+    APP --> SEARCH["🔎 搜索服务"]
+    APP --> PLAN["🧾 整理计划生成器"]
+    APP --> DB["🗄️ SQLite 数据库"]
+    APP --> SAFE["🛡️ 安全策略"]
 
-    SCAN --> RULES["规则分类"]
-    SCAN --> EXTRACT["内容提取"]
-    SCAN --> DUP["重复文件检测"]
+    SCAN --> RULES["📏 规则分类"]
+    SCAN --> EXTRACT["📄 内容提取"]
+    SCAN --> DUP["🧬 重复检测"]
 
     RULES --> DB
     EXTRACT --> DB
     DUP --> DB
 
-    SEARCH --> KEYWORD["关键词搜索"]
-    SEARCH --> SEMANTIC["语义搜索"]
-    SEMANTIC --> EMBED["Embedding 模型"]
+    SEARCH --> KEYWORD["🔤 关键词搜索"]
+    SEARCH --> SEMANTIC["🧠 语义搜索"]
+    SEMANTIC --> EMBED["📐 Embedding 模型"]
 
-    PLAN --> AI["AI Service"]
-    AI --> ROUTER["Provider Factory"]
-    ROUTER --> OLLAMA["Ollama Provider"]
-    ROUTER --> CLOUD["OpenAI 兼容云端 Provider"]
+    PLAN --> AI["🤖 AI Service"]
+    AI --> ROUTER["🔀 Provider Factory"]
+    ROUTER --> OLLAMA["🏠 Ollama Provider"]
+    ROUTER --> CLOUD["☁️ Cloud Provider"]
 
     OLLAMA --> LOCAL["本地模型"]
     CLOUD --> REMOTE["云端模型"]
 
-    PLAN --> PREVIEW["计划预览"]
-    PREVIEW --> EXEC["文件执行器"]
-    EXEC --> JOURNAL["操作日志与撤销"]
+    PLAN --> PREVIEW["👀 计划预览"]
+    PREVIEW --> EXEC["⚙️ 文件执行器"]
+    EXEC --> JOURNAL["↩️ 操作日志与撤销"]
     SAFE --> PREVIEW
 ```
 
-## AI 调用设计
+---
 
-业务代码只依赖统一接口：
+## 🤖 AI 能力设计
+
+业务代码只依赖统一 Provider 接口：
 
 ```python
 class AIProvider:
@@ -201,22 +204,54 @@ class AIProvider:
     embed(request)
 ```
 
-当前 Provider：
+### Provider 类型
 
-- `OllamaProvider`：调用本机 `http://localhost:11434`，自动发现已安装模型。
-- `OpenAICompatibleProvider`：支持 OpenAI 兼容云端 API，默认关闭。
+| Provider | 用途 |
+|---|---|
+| 🏠 `OllamaProvider` | 调用本机 `http://localhost:11434`，自动发现本地模型 |
+| ☁️ `OpenAICompatibleProvider` | 调用用户显式配置的云端 API |
 
-调用策略：
+### 任务模型配置
 
-- 本地 Ollama 优先。
+```text
+classification → 文件分类模型
+renaming       → 智能命名模型
+vision         → 图片理解模型
+embeddings     → 语义搜索向量模型
+```
+
+### 隐私策略
+
 - 本地模型失败时不自动切换云端。
 - 云端 API 必须显式启用。
+- 云端调用必须经过隐私授权。
 - API 密钥不写入 Git、SQLite 或日志。
 - 模型权重不进入仓库。
 
 ---
 
-## 完整项目骨架
+## 🗃️ 数据设计
+
+DiskWise 使用 SQLite 保存结构化信息，而不是把用户文件复制进数据库。
+
+| 数据 | 保存内容 |
+|---|---|
+| 文件索引 | 路径、大小、扩展名、修改时间、哈希 |
+| 内容摘要 | PDF、Word、图片 OCR 或截图理解摘要 |
+| 分类结果 | 规则分类和 AI 分类结果 |
+| 模型配置 | 各任务使用哪个 Provider 和模型 |
+| 整理计划 | 建议移动、重命名、归档操作 |
+| 操作日志 | 执行记录和撤销信息 |
+
+正式运行数据默认位于：
+
+```text
+%LOCALAPPDATA%\DiskWise
+```
+
+---
+
+## 📁 完整项目结构
 
 ```text
 diskwise/
@@ -299,15 +334,41 @@ diskwise/
 
 ---
 
-## 安装与运行
+## 🧭 模块地图
+
+| 路径 | 角色 |
+|---|---|
+| 🖥️ `ui/` | 桌面界面、页面布局、模型设置入口 |
+| 🗄️ `database/` | SQLite 连接、表结构、配置仓储 |
+| 🤖 `ai/` | Provider 抽象、本地 Ollama、云端 API |
+| 🛡️ `safety/` | 云端授权、路径策略、操作校验 |
+| ⚙️ `executor/` | 文件移动、重命名、删除与撤销 |
+| 🗂️ `scanner/` | 文件遍历、元数据读取 |
+| 📏 `rules/` | 扩展名、大小、类型等确定性规则 |
+| 📄 `extractors/` | PDF、Word、图片、代码内容提取 |
+| 🔎 `search/` | 关键词搜索、语义搜索 |
+| 🧬 `duplicates/` | 重复文件检测 |
+| 🧾 `planner/` | 整理计划生成 |
+
+---
+
+## 🚀 快速开始
+
+### 1. 克隆项目
 
 ```powershell
-cd D:\DiskWise
+git clone https://github.com/DoTrungHuy/DiskWise.git
+cd DiskWise
+```
+
+### 2. 创建环境
+
+```powershell
 C:\Python\Python312\python.exe -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 ```
 
-启动应用：
+### 3. 启动应用
 
 ```powershell
 .\.venv\Scripts\python.exe -m diskwise.main
@@ -319,7 +380,9 @@ C:\Python\Python312\python.exe -m venv .venv
 .\.venv\Scripts\diskwise.exe
 ```
 
-## 本地模型
+---
+
+## 🏠 本地模型
 
 如果使用 Ollama：
 
@@ -328,9 +391,11 @@ ollama pull gemma4:e2b
 ollama list
 ```
 
-DiskWise 会读取本机 Ollama 模型列表，不局限于 Gemma。用户可以选择其他本地模型。
+DiskWise 会读取本机 Ollama 模型列表，不局限于 Gemma。
 
-## 云端 API
+---
+
+## ☁️ 云端 API
 
 复制 `.env.example` 中的变量到自己的环境中。真实密钥不要提交到仓库。
 
@@ -344,26 +409,7 @@ DISKWISE_CLOUD_API_KEY=your-api-key-here
 
 ---
 
-## 运行数据
-
-正式运行时，运行数据默认位于：
-
-```text
-%LOCALAPPDATA%\DiskWise
-```
-
-| 路径 | 用途 |
-|---|---|
-| `diskwise.db` | SQLite 配置和文件索引 |
-| `vectors/` | 语义搜索向量索引 |
-| `cache/` | 内容提取和模型结果缓存 |
-| `logs/` | 程序运行日志 |
-
-仓库中的 `data/` 只保留目录结构，不保存真实用户数据。
-
----
-
-## 测试
+## ✅ 测试
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
@@ -384,7 +430,7 @@ DISKWISE_CLOUD_API_KEY=your-api-key-here
 
 ---
 
-## 路线图
+## 🛣️ 路线图
 
 | 版本 | 目标 |
 |---|---|
@@ -397,9 +443,7 @@ DISKWISE_CLOUD_API_KEY=your-api-key-here
 
 ---
 
-## 设计底线
-
-> AI 可以提出建议，但不能直接操作用户文件。
+## 🛡️ 设计底线
 
 DiskWise 的文件整理能力必须满足：
 
@@ -412,7 +456,9 @@ DiskWise 的文件整理能力必须满足：
 - 系统目录默认禁止。
 - 云端传输必须显式授权。
 
-## License
+---
+
+## 📜 License
 
 MIT License. See [LICENSE](LICENSE).
 
