@@ -1,4 +1,5 @@
 from diskwise.ai.schemas import AITask, ProviderType, TaskModelConfig
+from diskwise.database.connection import connect
 from diskwise.database.migrations import initialize_database
 from diskwise.database.repositories.model_config_repository import (
     ModelConfigRepository,
@@ -35,3 +36,27 @@ def test_model_selection_can_be_changed_per_task(tmp_path):
     assert saved.provider is ProviderType.OPENAI_COMPATIBLE
     assert saved.model_name == "cloud-model"
 
+
+def test_core_tables_are_created(tmp_path):
+    database_path = tmp_path / "diskwise.db"
+    initialize_database(database_path)
+
+    with connect(database_path) as connection:
+        tables = {
+            row["name"]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type IN ('table', 'virtual')"
+            ).fetchall()
+        }
+
+    assert {
+        "scan_roots",
+        "files",
+        "extracted_content",
+        "classifications",
+        "embeddings",
+        "plans",
+        "plan_items",
+        "operations",
+        "model_runs",
+    }.issubset(tables)

@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QTabWidget
 from diskwise.ai.schemas import ModelInfo, ProviderHealth, ProviderType
 from diskwise.database.migrations import initialize_database
 from diskwise.ui.main_window import MainWindow
+from diskwise.ui.scan_page import ScanPage
 from diskwise.ui.settings_page import SettingsPage
 
 
@@ -22,6 +23,23 @@ def test_main_window_starts_with_four_pages(qtbot, tmp_path):
         "计划",
         "设置",
     ]
+
+
+def test_scan_page_can_scan_temp_folder(qtbot, tmp_path):
+    database_path = tmp_path / "diskwise.db"
+    initialize_database(database_path)
+    root = tmp_path / "files"
+    root.mkdir()
+    (root / "archive.zip").write_bytes(b"zip")
+
+    page = ScanPage(database_path)
+    qtbot.addWidget(page)
+
+    count = page.scan_folder(root)
+
+    assert count == 1
+    assert page.table.rowCount() == 1
+    assert page.table.item(0, 1).text() == "压缩包"
 
 
 def test_settings_page_lists_multiple_discovered_models(qtbot, tmp_path):

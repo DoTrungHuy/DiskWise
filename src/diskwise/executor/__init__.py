@@ -1,2 +1,1 @@
-"""File operation interfaces. Real operations are disabled in version 0.1."""
-
+"""File operation interfaces with explicit confirmation guards."""
