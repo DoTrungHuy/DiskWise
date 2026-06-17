@@ -7,7 +7,7 @@ from diskwise.ui.scan_page import ScanPage
 from diskwise.ui.settings_page import SettingsPage
 
 
-def test_main_window_starts_with_four_pages(qtbot, tmp_path):
+def test_main_window_starts_with_workbench_pages(qtbot, tmp_path):
     database_path = tmp_path / "diskwise.db"
     initialize_database(database_path)
 
@@ -16,11 +16,13 @@ def test_main_window_starts_with_four_pages(qtbot, tmp_path):
 
     tabs = window.findChild(QTabWidget, "mainTabs")
     assert tabs is not None
-    assert tabs.count() == 4
+    assert tabs.count() == 6
     assert [tabs.tabText(index) for index in range(tabs.count())] == [
-        "扫描",
+        "总览",
+        "资料库",
         "搜索",
         "计划",
+        "活动",
         "设置",
     ]
 

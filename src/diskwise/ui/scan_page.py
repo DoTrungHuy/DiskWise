@@ -76,13 +76,14 @@ class ScanPage(QWidget):
         self._selected_root: Path | None = None
         self._scan_worker: ScanWorker | None = None
 
-        heading = QLabel("文件扫描")
-        heading.setStyleSheet("font-size: 22px; font-weight: 600;")
+        heading = QLabel("资料库与扫描")
+        heading.setObjectName("pageTitle")
         note = QLabel(
-            "选择你授权的文件夹后，DiskWise 会只读扫描文件名、大小、类型和时间。"
+            "选择授权目录后建立本地资料库。扫描只读取文件名、大小、类型和时间，"
             "不会跟随符号链接，也不会修改真实文件。"
         )
         note.setWordWrap(True)
+        note.setObjectName("pageNote")
 
         self.path_label = QLabel("尚未选择文件夹")
         self.status_label = QLabel("等待扫描")

@@ -27,12 +27,13 @@ class SearchPage(QWidget):
         self._search = SearchService(database_path)
         self._duplicates = DuplicateDetector(database_path)
 
-        heading = QLabel("文件搜索")
-        heading.setStyleSheet("font-size: 22px; font-weight: 600;")
+        heading = QLabel("搜索")
+        heading.setObjectName("pageTitle")
         note = QLabel(
             "当前支持 SQLite 关键词搜索和重复文件检测。语义搜索会在配置向量模型后接入。"
         )
         note.setWordWrap(True)
+        note.setObjectName("pageNote")
 
         self.query_input = QLineEdit()
         self.query_input.setPlaceholderText("输入文件名、分类或摘要关键词")

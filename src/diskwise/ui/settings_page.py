@@ -75,12 +75,13 @@ class SettingsPage(QWidget):
         self._worker: ModelDiscoveryWorker | None = None
 
         heading = QLabel("AI 模型设置")
-        heading.setStyleSheet("font-size: 22px; font-weight: 600;")
+        heading.setObjectName("pageTitle")
         note = QLabel(
             "本地 Ollama 优先。云端 API 必须通过环境变量显式启用，"
             "程序不会自动将本地内容发送到云端。"
         )
         note.setWordWrap(True)
+        note.setObjectName("pageNote")
 
         self.task_combo = QComboBox()
         for task, label in TASK_LABELS.items():
