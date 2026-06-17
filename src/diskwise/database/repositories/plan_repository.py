@@ -31,6 +31,18 @@ class PlanRecord:
     items: list[PlanItemRecord]
 
 
+@dataclass(frozen=True)
+class OperationRecord:
+    id: int
+    plan_item_id: int | None
+    action: str
+    source_path: str
+    target_path: str | None
+    undo_data: str | None
+    status: str
+    created_at: str
+
+
 def _item_from_row(row) -> PlanItemRecord:
     return PlanItemRecord(
         id=row["id"],
@@ -43,6 +55,19 @@ def _item_from_row(row) -> PlanItemRecord:
         category=row["category"],
         reason=row["reason"],
         status=row["status"],
+    )
+
+
+def _operation_from_row(row) -> OperationRecord:
+    return OperationRecord(
+        id=row["id"],
+        plan_item_id=row["plan_item_id"],
+        action=row["action"],
+        source_path=row["source_path"],
+        target_path=row["target_path"],
+        undo_data=row["undo_data"],
+        status=row["status"],
+        created_at=row["created_at"],
     )
 
 
@@ -111,6 +136,20 @@ class PlanRepository:
             items=[_item_from_row(row) for row in rows],
         )
 
+    def update_plan_status(self, plan_id: int, status: str) -> None:
+        with connect(self._database_path) as connection:
+            connection.execute(
+                "UPDATE plans SET status = ? WHERE id = ?",
+                (status, plan_id),
+            )
+
+    def update_item_status(self, item_id: int, status: str) -> None:
+        with connect(self._database_path) as connection:
+            connection.execute(
+                "UPDATE plan_items SET status = ? WHERE id = ?",
+                (status, item_id),
+            )
+
     def list_latest(self, limit: int = 20) -> list[PlanRecord]:
         with connect(self._database_path) as connection:
             plans = connection.execute(
@@ -168,3 +207,33 @@ class PlanRepository:
                 ),
             )
             return int(cursor.lastrowid)
+
+    def list_operations(self, limit: int = 100) -> list[OperationRecord]:
+        with connect(self._database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM operations
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [_operation_from_row(row) for row in rows]
+
+    def get_operation(self, operation_id: int) -> OperationRecord:
+        with connect(self._database_path) as connection:
+            row = connection.execute(
+                "SELECT * FROM operations WHERE id = ?",
+                (operation_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"Operation id {operation_id} does not exist")
+        return _operation_from_row(row)
+
+    def update_operation_status(self, operation_id: int, status: str) -> None:
+        with connect(self._database_path) as connection:
+            connection.execute(
+                "UPDATE operations SET status = ? WHERE id = ?",
+                (status, operation_id),
+            )

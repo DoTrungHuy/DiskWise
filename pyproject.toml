@@ -24,9 +24,14 @@ dev = [
     "pytest>=8.3,<9",
     "pytest-qt>=4.4,<5",
 ]
+web = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.32,<1",
+]
 
 [project.scripts]
 diskwise = "diskwise.main:main"
+diskwise-api = "diskwise.api.main:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
