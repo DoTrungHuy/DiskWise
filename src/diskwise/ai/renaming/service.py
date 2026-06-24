@@ -8,11 +8,12 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from diskwise.ai.renaming.prompts import RENAMING_SYSTEM_PROMPT, build_renaming_prompt
-from diskwise.ai.schemas import AITask, GenerateRequest
+from diskwise.ai.schemas import AITask, GenerateRequest, ProviderType
 from diskwise.ai.service import AIService
 from diskwise.config.settings import AppSettings
 from diskwise.database.repositories.file_repository import FileRepository
 from diskwise.database.repositories.model_config_repository import ModelConfigRepository
+from diskwise.permissions.service import PermissionService
 from diskwise.safety.operation_validator import sanitize_filename
 from diskwise.safety.path_policy import is_sensitive_for_cloud
 
@@ -30,7 +31,9 @@ class AIRenamingService:
     ) -> None:
         self._files = FileRepository(database_path)
         self._configs = ModelConfigRepository(database_path)
-        self._ai = AIService(settings or AppSettings.from_environment())
+        self._settings = settings or AppSettings.from_environment()
+        self._ai = AIService(self._settings)
+        self._permissions = PermissionService(database_path, self._settings)
 
     async def suggest_name(
         self,
@@ -42,8 +45,10 @@ class AIRenamingService:
         config = self._configs.get(AITask.RENAMING)
         if not config.enabled or not config.model_name:
             raise RuntimeError("智能命名模型尚未启用")
-        if config.provider.value != "ollama" and is_sensitive_for_cloud(record.path):
-            raise RuntimeError("敏感文件不会发送到云端 AI")
+        if config.provider is not ProviderType.OLLAMA:
+            self._permissions.assert_cloud_ai_allowed()
+            if is_sensitive_for_cloud(record.path):
+                raise RuntimeError("敏感文件不会发送到云端 AI")
 
         response = await self._ai.generate(
             config.provider,

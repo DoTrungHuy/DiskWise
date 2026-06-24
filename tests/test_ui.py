@@ -2,12 +2,14 @@ from PySide6.QtWidgets import QTabWidget
 
 from diskwise.ai.schemas import ModelInfo, ProviderHealth, ProviderType
 from diskwise.database.migrations import initialize_database
+from diskwise.ui.ai_page import AIPage
 from diskwise.ui.main_window import MainWindow
+from diskwise.ui.permission_page import PermissionPage
 from diskwise.ui.scan_page import ScanPage
 from diskwise.ui.settings_page import SettingsPage
 
 
-def test_main_window_starts_with_four_pages(qtbot, tmp_path):
+def test_main_window_starts_with_workbench_pages(qtbot, tmp_path):
     database_path = tmp_path / "diskwise.db"
     initialize_database(database_path)
 
@@ -16,13 +18,30 @@ def test_main_window_starts_with_four_pages(qtbot, tmp_path):
 
     tabs = window.findChild(QTabWidget, "mainTabs")
     assert tabs is not None
-    assert tabs.count() == 4
+    assert tabs.count() == 8
     assert [tabs.tabText(index) for index in range(tabs.count())] == [
-        "扫描",
+        "总览",
+        "资料库",
+        "AI",
         "搜索",
         "计划",
+        "权限",
+        "活动",
         "设置",
     ]
+
+
+def test_ai_and_permission_pages_start(qtbot, tmp_path):
+    database_path = tmp_path / "diskwise.db"
+    initialize_database(database_path)
+
+    ai_page = AIPage(database_path)
+    permission_page = PermissionPage(database_path)
+    qtbot.addWidget(ai_page)
+    qtbot.addWidget(permission_page)
+
+    assert ai_page.model_table.rowCount() == 4
+    assert permission_page.table.rowCount() == 5
 
 
 def test_scan_page_can_scan_temp_folder(qtbot, tmp_path):

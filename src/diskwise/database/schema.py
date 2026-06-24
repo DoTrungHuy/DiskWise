@@ -1,6 +1,6 @@
 """Database schema for DiskWise."""
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 CREATE_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_versions (
@@ -11,6 +11,12 @@ CREATE TABLE IF NOT EXISTS schema_versions (
 CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS capability_permissions (
+    capability TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -138,5 +144,13 @@ DEFAULT_MODEL_CONFIGS = (
     ("renaming", "ollama", "gemma4:e2b", 1),
     ("vision", "ollama", None, 0),
     ("embeddings", "ollama", None, 0),
+)
+
+DEFAULT_CAPABILITY_PERMISSIONS = (
+    ("scan_directories", 1),
+    ("execute_plans", 1),
+    ("undo_operations", 1),
+    ("cloud_ai", 0),
+    ("sensitive_file_protection", 1),
 )
 

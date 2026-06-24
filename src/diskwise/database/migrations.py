@@ -7,6 +7,7 @@ from pathlib import Path
 from diskwise.database.connection import connect
 from diskwise.database.schema import (
     CREATE_SCHEMA_SQL,
+    DEFAULT_CAPABILITY_PERMISSIONS,
     DEFAULT_MODEL_CONFIGS,
     SCHEMA_VERSION,
 )
@@ -27,5 +28,13 @@ def initialize_database(database_path: Path) -> None:
             VALUES (?, ?, ?, ?)
             """,
             DEFAULT_MODEL_CONFIGS,
+        )
+        connection.executemany(
+            """
+            INSERT OR IGNORE INTO capability_permissions
+                (capability, enabled)
+            VALUES (?, ?)
+            """,
+            DEFAULT_CAPABILITY_PERMISSIONS,
         )
 

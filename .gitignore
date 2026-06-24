@@ -14,6 +14,8 @@ __pycache__/
 htmlcov/
 build/
 dist/
+node_modules/
+*.tsbuildinfo
 
 # IDE and operating-system files
 .idea/
@@ -29,4 +31,3 @@ data/cache/*
 !data/cache/.gitkeep
 data/logs/*
 !data/logs/.gitkeep
-

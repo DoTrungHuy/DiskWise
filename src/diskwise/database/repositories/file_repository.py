@@ -22,6 +22,15 @@ class FileRecord:
     quick_hash: str | None = None
     full_hash: str | None = None
     content_preview: str | None = None
+    status: str = "active"
+
+
+@dataclass(frozen=True)
+class ScanRootRecord:
+    id: int
+    path: str
+    created_at: str
+    last_scanned_at: str | None
 
 
 def _row_to_record(row) -> FileRecord:
@@ -36,6 +45,7 @@ def _row_to_record(row) -> FileRecord:
         quick_hash=row["quick_hash"],
         full_hash=row["full_hash"],
         content_preview=row["content_preview"] if "content_preview" in row.keys() else None,
+        status=row["status"] if "status" in row.keys() else "active",
     )
 
 
@@ -107,20 +117,106 @@ class FileRepository:
             count += 1
         return count
 
-    def list_files(self, limit: int = 500) -> list[FileRecord]:
+    def list_files(
+        self,
+        limit: int = 500,
+        *,
+        query: str = "",
+        category: str = "",
+        extension: str = "",
+    ) -> list[FileRecord]:
+        filters = ["f.status = 'active'"]
+        params: list[object] = []
+        if query.strip():
+            like = f"%{query.strip()}%"
+            filters.append(
+                """
+                (
+                    f.path LIKE ?
+                    OR f.name LIKE ?
+                    OR COALESCE(f.category, '') LIKE ?
+                    OR COALESCE(c.content_preview, '') LIKE ?
+                )
+                """
+            )
+            params.extend([like, like, like, like])
+        if category.strip():
+            filters.append("COALESCE(f.category, '') = ?")
+            params.append(category.strip())
+        if extension.strip():
+            normalized_extension = extension.strip().lower()
+            if normalized_extension and not normalized_extension.startswith("."):
+                normalized_extension = f".{normalized_extension}"
+            filters.append("f.extension = ?")
+            params.append(normalized_extension)
+        params.append(limit)
         with connect(self._database_path) as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT f.*, c.content_preview
                 FROM files f
                 LEFT JOIN extracted_content c ON c.file_id = f.id
-                WHERE f.status = 'active'
+                WHERE {" AND ".join(filters)}
                 ORDER BY f.indexed_at DESC, f.path
                 LIMIT ?
                 """,
-                (limit,),
+                params,
             ).fetchall()
         return [_row_to_record(row) for row in rows]
+
+    def count_files(self) -> int:
+        with connect(self._database_path) as connection:
+            row = connection.execute(
+                "SELECT COUNT(*) AS count FROM files WHERE status = 'active'"
+            ).fetchone()
+        return int(row["count"])
+
+    def category_counts(self) -> list[tuple[str, int]]:
+        with connect(self._database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT COALESCE(category, '未分类') AS category, COUNT(*) AS count
+                FROM files
+                WHERE status = 'active'
+                GROUP BY COALESCE(category, '未分类')
+                ORDER BY count DESC, category
+                """
+            ).fetchall()
+        return [(row["category"], int(row["count"])) for row in rows]
+
+    def extension_counts(self) -> list[tuple[str, int]]:
+        with connect(self._database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT COALESCE(NULLIF(extension, ''), '(无扩展名)') AS extension,
+                       COUNT(*) AS count
+                FROM files
+                WHERE status = 'active'
+                GROUP BY COALESCE(NULLIF(extension, ''), '(无扩展名)')
+                ORDER BY count DESC, extension
+                LIMIT 20
+                """
+            ).fetchall()
+        return [(row["extension"], int(row["count"])) for row in rows]
+
+    def list_scan_roots(self) -> list[ScanRootRecord]:
+        with connect(self._database_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT id, path, created_at, last_scanned_at
+                FROM scan_roots
+                ORDER BY last_scanned_at DESC, path
+                """
+            ).fetchall()
+        return [
+            ScanRootRecord(
+                id=row["id"],
+                path=row["path"],
+                created_at=row["created_at"],
+                last_scanned_at=row["last_scanned_at"],
+            )
+            for row in rows
+        ]
 
     def get_file(self, file_id: int) -> FileRecord:
         with connect(self._database_path) as connection:
@@ -303,4 +399,3 @@ class FileRepository:
             if record.full_hash:
                 groups.setdefault(record.full_hash, []).append(record)
         return groups
-
