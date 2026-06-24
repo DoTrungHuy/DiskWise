@@ -10,14 +10,21 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from diskwise.ai.schemas import AITask
+from diskwise.ai.classification.service import AIClassificationService
+from diskwise.ai.renaming.service import AIRenamingService
+from diskwise.ai.schemas import AITask, ProviderType
+from diskwise.ai.service import AIService
 from diskwise.api.schemas import (
+    AIClassifyRequest,
+    AIRenameRequest,
     CategoryPlanRequest,
     ExecutePlanRequest,
+    PermissionUpdateRequest,
     ScanRequest,
     UndoOperationRequest,
 )
 from diskwise.config.paths import ensure_runtime_directories
+from diskwise.config.settings import AppSettings
 from diskwise.database.migrations import initialize_database
 from diskwise.database.repositories.file_repository import FileRecord, FileRepository
 from diskwise.database.repositories.model_config_repository import ModelConfigRepository
@@ -29,6 +36,7 @@ from diskwise.database.repositories.plan_repository import (
 )
 from diskwise.duplicates.detector import DuplicateDetector
 from diskwise.extractors.service import ExtractionService
+from diskwise.permissions.service import Capability, PermissionService
 from diskwise.planner.execution_service import PlanExecutionService
 from diskwise.planner.plan_service import PlanService
 from diskwise.scanner.file_scanner import FileScanner
@@ -59,6 +67,7 @@ def create_app(database_path: Path | None = None) -> FastAPI:
         files = FileRepository(database_path)
         plans = PlanRepository(database_path).list_latest(limit=1)
         duplicates = DuplicateDetector(database_path).update_hashes_for_candidates()
+        permissions = PermissionService(database_path).snapshot()
         return {
             "fileCount": files.count_files(),
             "scanRoots": [root.__dict__ for root in files.list_scan_roots()],
@@ -73,6 +82,7 @@ def create_app(database_path: Path | None = None) -> FastAPI:
             "duplicateGroupCount": len(duplicates),
             "latestPlan": _plan_to_dict(plans[0]) if plans else None,
             "ai": _model_settings(database_path),
+            "permissions": _permission_snapshot_to_dict(permissions),
         }
 
     @app.get("/api/files")
@@ -93,6 +103,7 @@ def create_app(database_path: Path | None = None) -> FastAPI:
     @app.post("/api/scan")
     def scan(request: ScanRequest) -> dict[str, Any]:
         try:
+            PermissionService(database_path).assert_enabled(Capability.SCAN_DIRECTORIES)
             root = Path(request.path)
             repository = FileRepository(database_path)
             count = repository.save_many(root, FileScanner().scan(root))
@@ -194,6 +205,83 @@ def create_app(database_path: Path | None = None) -> FastAPI:
     def settings_models() -> dict[str, Any]:
         return {"tasks": _model_settings(database_path)}
 
+    @app.get("/api/permissions")
+    def permissions() -> dict[str, Any]:
+        snapshot = PermissionService(database_path).snapshot()
+        return _permission_snapshot_to_dict(snapshot)
+
+    @app.patch("/api/permissions/{capability}")
+    def update_permission(
+        capability: str,
+        request: PermissionUpdateRequest,
+    ) -> dict[str, Any]:
+        try:
+            snapshot = PermissionService(database_path).set_enabled(
+                capability,
+                request.enabled,
+            )
+            return _permission_snapshot_to_dict(snapshot)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/ai/health")
+    async def ai_health() -> dict[str, Any]:
+        settings = AppSettings.from_environment()
+        service = AIService(settings)
+        providers: list[dict[str, Any]] = []
+        for provider in ProviderType:
+            try:
+                health = await service.health_check(provider)
+                providers.append(health.model_dump())
+            except Exception as exc:
+                providers.append(
+                    {
+                        "provider": provider.value,
+                        "healthy": False,
+                        "message": str(exc),
+                        "version": None,
+                    }
+                )
+        return {
+            "providers": providers,
+            "tasks": _model_settings(database_path),
+            "permissions": _permission_snapshot_to_dict(
+                PermissionService(database_path, settings).snapshot()
+            ),
+        }
+
+    @app.post("/api/ai/classify")
+    async def classify_file(request: AIClassifyRequest) -> dict[str, Any]:
+        try:
+            result = await AIClassificationService(database_path).classify_file(
+                request.file_id,
+                cloud_consent=request.cloud_consent,
+            )
+            return {
+                "fileId": result.file_id,
+                "category": result.category,
+                "suggestedName": result.suggested_name,
+                "confidence": result.confidence,
+                "reason": result.reason,
+            }
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/ai/rename")
+    async def rename_file(request: AIRenameRequest) -> dict[str, Any]:
+        try:
+            result = await AIRenamingService(database_path).suggest_name(
+                request.file_id,
+                cloud_consent=request.cloud_consent,
+            )
+            return {
+                "fileId": request.file_id,
+                "suggestedName": result.suggested_name,
+                "reason": result.reason,
+            }
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     web_dist = _web_dist_dir()
     if web_dist.exists():
         app.mount("/", StaticFiles(directory=web_dist, html=True), name="web")
@@ -268,6 +356,25 @@ def _operation_to_dict(operation: OperationRecord) -> dict[str, Any]:
         "status": operation.status,
         "createdAt": operation.created_at,
         "canUndo": can_undo,
+    }
+
+
+def _permission_snapshot_to_dict(snapshot: object) -> dict[str, Any]:
+    return {
+        "cloudEnvEnabled": snapshot.cloud_env_enabled,
+        "permissions": [
+            {
+                "capability": permission.capability,
+                "label": permission.label,
+                "description": permission.description,
+                "enabled": permission.enabled,
+                "effectiveEnabled": permission.effective_enabled,
+                "requiresConfirmation": permission.requires_confirmation,
+                "locked": permission.locked,
+                "reason": permission.reason,
+            }
+            for permission in snapshot.permissions
+        ],
     }
 
 

@@ -4,42 +4,63 @@ import {
   Archive,
   Bot,
   CheckCircle2,
+  Cloud,
   Database,
   FileSearch,
   FolderOpen,
   History,
   Layers3,
+  Lock,
   Play,
   RefreshCw,
   RotateCcw,
   Search,
   Settings,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { api } from "./api";
 import type {
+  AIHealth,
+  CapabilityPermission,
   DuplicateGroup,
   FileRecord,
   ModelTask,
   Operation,
   Overview,
+  PermissionSnapshot,
   Plan
 } from "./types";
 import "./App.css";
 
-type View = "dashboard" | "library" | "search" | "plans" | "activity" | "settings";
+type View =
+  | "dashboard"
+  | "library"
+  | "ai"
+  | "search"
+  | "plans"
+  | "permissions"
+  | "activity"
+  | "settings";
 type ConfirmIntent = "execute" | "undo" | null;
 
 const views: Array<{ id: View; label: string; icon: typeof Database }> = [
-  { id: "dashboard", label: "Dashboard", icon: Database },
-  { id: "library", label: "Library", icon: Archive },
-  { id: "search", label: "Search", icon: FileSearch },
-  { id: "plans", label: "Plans", icon: Layers3 },
-  { id: "activity", label: "Activity", icon: History },
-  { id: "settings", label: "Settings", icon: Settings }
+  { id: "dashboard", label: "总览", icon: Database },
+  { id: "library", label: "资料库", icon: Archive },
+  { id: "ai", label: "AI", icon: Bot },
+  { id: "search", label: "搜索", icon: FileSearch },
+  { id: "plans", label: "计划", icon: Layers3 },
+  { id: "permissions", label: "权限", icon: ShieldCheck },
+  { id: "activity", label: "活动", icon: History },
+  { id: "settings", label: "设置", icon: Settings }
 ];
+
+const emptyPermissions: PermissionSnapshot = {
+  cloudEnvEnabled: false,
+  permissions: []
+};
 
 const emptyOverview: Overview = {
   fileCount: 0,
@@ -48,7 +69,8 @@ const emptyOverview: Overview = {
   extensionCounts: [],
   duplicateGroupCount: 0,
   latestPlan: null,
-  ai: []
+  ai: [],
+  permissions: emptyPermissions
 };
 
 export default function App() {
@@ -58,6 +80,8 @@ export default function App() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [operations, setOperations] = useState<Operation[]>([]);
   const [models, setModels] = useState<ModelTask[]>([]);
+  const [permissions, setPermissions] = useState<PermissionSnapshot>(emptyPermissions);
+  const [aiHealth, setAiHealth] = useState<AIHealth | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
   const [selectedPlanIds, setSelectedPlanIds] = useState<number[]>([]);
@@ -66,7 +90,9 @@ export default function App() {
   const [libraryQuery, setLibraryQuery] = useState("");
   const [libraryCategory, setLibraryCategory] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [notice, setNotice] = useState("本地 API 就绪后，工作台会自动显示索引状态");
+  const [cloudConsent, setCloudConsent] = useState(false);
+  const [aiResult, setAiResult] = useState("选择一个资料库文件后，可以运行 AI 分类或生成命名建议。");
+  const [notice, setNotice] = useState("本地工作台就绪");
   const [busy, setBusy] = useState(false);
   const [confirmIntent, setConfirmIntent] = useState<ConfirmIntent>(null);
   const [confirmText, setConfirmText] = useState("");
@@ -86,19 +112,21 @@ export default function App() {
   async function refreshAll() {
     setBusy(true);
     try {
-      const [overviewData, filesData, plansData, activityData, modelData] =
+      const [overviewData, filesData, plansData, activityData, modelData, permissionData] =
         await Promise.all([
           api.overview(),
           api.files(),
           api.latestPlans(),
           api.activity(),
-          api.models()
+          api.models(),
+          api.permissions()
         ]);
       setOverview(overviewData);
       setFiles(filesData.files);
       setPlans(plansData.plans);
       setOperations(activityData.operations);
       setModels(modelData.tasks);
+      setPermissions(permissionData);
       setNotice("状态已刷新");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "刷新失败");
@@ -129,7 +157,7 @@ export default function App() {
         category: libraryCategory
       });
       setFiles(result.files);
-      setNotice(`Library 显示 ${result.files.length} 个文件`);
+      setNotice(`资料库显示 ${result.files.length} 个文件`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "筛选失败");
     } finally {
@@ -146,6 +174,51 @@ export default function App() {
       await filterLibrary();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "提取失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runAIHealth() {
+    setBusy(true);
+    try {
+      const result = await api.aiHealth();
+      setAiHealth(result);
+      setPermissions(result.permissions);
+      setNotice("模型服务检测完成");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "模型检测失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function classifySelectedFile() {
+    if (!selectedFile) return;
+    setBusy(true);
+    try {
+      const result = await api.classify(selectedFile.id, cloudConsent);
+      setAiResult(
+        `分类：${result.category}\n建议名称：${result.suggestedName}\n置信度：${result.confidence.toFixed(2)}\n${result.reason}`
+      );
+      setNotice("AI 分类完成");
+      await filterLibrary();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "AI 分类失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function renameSelectedFile() {
+    if (!selectedFile) return;
+    setBusy(true);
+    try {
+      const result = await api.rename(selectedFile.id, cloudConsent);
+      setAiResult(`建议名称：${result.suggestedName}\n${result.reason}`);
+      setNotice("命名建议已生成");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "命名建议失败");
     } finally {
       setBusy(false);
     }
@@ -188,6 +261,19 @@ export default function App() {
       setView("plans");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "计划生成失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updatePermission(capability: string, enabled: boolean) {
+    setBusy(true);
+    try {
+      const snapshot = await api.updatePermission(capability, enabled);
+      setPermissions(snapshot);
+      setNotice("权限已更新");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "权限更新失败");
     } finally {
       setBusy(false);
     }
@@ -243,12 +329,12 @@ export default function App() {
 
   return (
     <div className="shell">
-      <aside className="sidebar" aria-label="Main navigation">
+      <aside className="sidebar" aria-label="主导航">
         <div className="brand">
           <ShieldCheck size={26} />
           <div>
             <strong>DiskWise</strong>
-            <span>Local workbench</span>
+            <span>本地文件工作台</span>
           </div>
         </div>
         <nav>
@@ -277,7 +363,7 @@ export default function App() {
           </div>
           <div className="top-actions">
             <span className={busy ? "status busy" : "status"}>{notice}</span>
-            <button className="icon-button" onClick={refreshAll} type="button" aria-label="Refresh">
+            <button className="icon-button" onClick={refreshAll} type="button" aria-label="刷新">
               <RefreshCw size={18} />
             </button>
           </div>
@@ -286,6 +372,7 @@ export default function App() {
         {view === "dashboard" && (
           <Dashboard
             overview={overview}
+            permissions={permissions}
             scanPath={scanPath}
             setScanPath={setScanPath}
             runScan={runScan}
@@ -309,6 +396,23 @@ export default function App() {
             onExtract={extractSelectedFile}
           />
         )}
+        {view === "ai" && (
+          <AIView
+            files={files}
+            selectedFile={selectedFile}
+            selectedFileId={selectedFileId}
+            setSelectedFileId={setSelectedFileId}
+            cloudConsent={cloudConsent}
+            setCloudConsent={setCloudConsent}
+            aiResult={aiResult}
+            aiHealth={aiHealth}
+            models={models}
+            permissions={permissions}
+            onHealth={runAIHealth}
+            onClassify={classifySelectedFile}
+            onRename={renameSelectedFile}
+          />
+        )}
         {view === "search" && (
           <SearchView
             query={searchQuery}
@@ -329,9 +433,14 @@ export default function App() {
             }}
           />
         )}
-        {view === "activity" && (
-          <ActivityView operations={operations} onUndo={beginUndo} />
+        {view === "permissions" && (
+          <PermissionsView
+            permissions={permissions.permissions}
+            cloudEnvEnabled={permissions.cloudEnvEnabled}
+            onToggle={updatePermission}
+          />
         )}
+        {view === "activity" && <ActivityView operations={operations} onUndo={beginUndo} />}
         {view === "settings" && <SettingsView models={models} />}
       </main>
 
@@ -341,9 +450,7 @@ export default function App() {
             <div className="modal-icon">
               <AlertTriangle size={24} />
             </div>
-            <h2 id="confirm-title">
-              {confirmIntent === "execute" ? "确认执行计划" : "确认撤销操作"}
-            </h2>
+            <h2 id="confirm-title">{confirmIntent === "execute" ? "确认执行计划" : "确认撤销操作"}</h2>
             <p>
               请输入 <strong>EXECUTE</strong> 后继续。DiskWise 会记录操作日志，并为可逆操作保留撤销数据。
             </p>
@@ -376,6 +483,7 @@ export default function App() {
 
 function Dashboard({
   overview,
+  permissions,
   scanPath,
   setScanPath,
   runScan,
@@ -384,6 +492,7 @@ function Dashboard({
   createPlan
 }: {
   overview: Overview;
+  permissions: PermissionSnapshot;
   scanPath: string;
   setScanPath: (value: string) => void;
   runScan: () => void;
@@ -393,22 +502,18 @@ function Dashboard({
 }) {
   return (
     <section className="dashboard-grid">
-      <Metric label="Indexed files" value={overview.fileCount} icon={Database} />
-      <Metric label="Scan roots" value={overview.scanRoots.length} icon={FolderOpen} />
-      <Metric label="Duplicate groups" value={overview.duplicateGroupCount} icon={Layers3} />
-      <Metric label="AI tasks" value={overview.ai.filter((task) => task.enabled).length} icon={Bot} />
+      <Metric label="已索引文件" value={overview.fileCount} icon={Database} />
+      <Metric label="扫描目录" value={overview.scanRoots.length} icon={FolderOpen} />
+      <Metric label="重复分组" value={overview.duplicateGroupCount} icon={Layers3} />
+      <Metric label="AI 任务" value={overview.ai.filter((task) => task.enabled).length} icon={Bot} />
 
       <section className="panel span-2">
         <div className="panel-heading">
-          <h2>Scan</h2>
-          <span>read only</span>
+          <h2>扫描</h2>
+          <span>只读索引</span>
         </div>
         <div className="path-row">
-          <input
-            value={scanPath}
-            onChange={(event) => setScanPath(event.target.value)}
-            placeholder="D:\\Downloads"
-          />
+          <input value={scanPath} onChange={(event) => setScanPath(event.target.value)} placeholder="D:\\Downloads" />
           <button onClick={runScan} type="button">
             <FolderOpen size={16} />
             扫描
@@ -419,7 +524,7 @@ function Dashboard({
           {overview.scanRoots.map((root) => (
             <li key={root.id}>
               <span>{root.path}</span>
-              <small>{root.last_scanned_at ?? "pending"}</small>
+              <small>{root.last_scanned_at ?? "尚未扫描"}</small>
             </li>
           ))}
         </ul>
@@ -427,61 +532,37 @@ function Dashboard({
 
       <section className="panel">
         <div className="panel-heading">
-          <h2>Categories</h2>
+          <h2>分类分布</h2>
         </div>
-        <BarList
-          items={overview.categoryCounts.map((item) => ({
-            label: item.category ?? "未分类",
-            count: item.count
-          }))}
-        />
+        <BarList items={overview.categoryCounts.map((item) => ({ label: item.category ?? "未分类", count: item.count }))} />
       </section>
 
       <section className="panel span-2">
         <div className="panel-heading">
-          <h2>Plan</h2>
-          <span>{overview.latestPlan?.status ?? "none"}</span>
+          <h2>整理计划</h2>
+          <span>{overview.latestPlan?.status ?? "暂无"}</span>
         </div>
         <div className="path-row">
-          <input
-            value={targetRoot}
-            onChange={(event) => setTargetRoot(event.target.value)}
-            placeholder="D:\\Organized"
-          />
+          <input value={targetRoot} onChange={(event) => setTargetRoot(event.target.value)} placeholder="D:\\Organized" />
           <button onClick={createPlan} type="button">
             <Layers3 size={16} />
             生成
           </button>
         </div>
-        <p className="muted">
-          最新计划：{overview.latestPlan ? `${overview.latestPlan.items.length} 项` : "暂无"}
-        </p>
+        <p className="muted">最新计划：{overview.latestPlan ? `${overview.latestPlan.items.length} 项` : "暂无"}</p>
       </section>
 
       <section className="panel">
         <div className="panel-heading">
-          <h2>Extensions</h2>
+          <h2>权限状态</h2>
         </div>
-        <BarList
-          items={overview.extensionCounts.map((item) => ({
-            label: item.extension ?? "(无扩展名)",
-            count: item.count
-          }))}
-        />
+        <PermissionMiniList permissions={permissions.permissions} />
       </section>
     </section>
   );
 }
 
-function Metric({
-  label,
-  value,
-  icon: Icon
-}: {
-  label: string;
-  value: number;
-  icon: typeof Database;
-}) {
+function Metric({ label, value, icon: Icon }: { label: string; value: number; icon: typeof Database }) {
   return (
     <section className="metric">
       <Icon size={20} />
@@ -503,6 +584,20 @@ function BarList({ items }: { items: Array<{ label: string; count: number }> }) 
             <i style={{ width: `${(item.count / max) * 100}%` }} />
           </div>
           <strong>{item.count}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PermissionMiniList({ permissions }: { permissions: CapabilityPermission[] }) {
+  if (!permissions.length) return <p className="muted">权限快照尚未加载</p>;
+  return (
+    <div className="mini-list">
+      {permissions.slice(0, 5).map((permission) => (
+        <div key={permission.capability}>
+          <span>{permission.label}</span>
+          <strong>{permission.effectiveEnabled ? "启用" : "关闭"}</strong>
         </div>
       ))}
     </div>
@@ -538,11 +633,7 @@ function Library({
     <section className="split">
       <div className="panel table-panel">
         <div className="toolbar">
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="文件名、分类、摘要"
-          />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="文件名、分类、摘要" />
           <select value={category} onChange={(event) => setCategory(event.target.value)}>
             <option value="">全部分类</option>
             {categories.map((item) => (
@@ -556,15 +647,11 @@ function Library({
             筛选
           </button>
         </div>
-        <FileTable
-          files={files}
-          selectedFileId={selectedFileId}
-          onSelect={setSelectedFileId}
-        />
+        <FileTable files={files} selectedFileId={selectedFileId} onSelect={setSelectedFileId} />
       </div>
       <aside className="panel inspector">
         <div className="panel-heading">
-          <h2>Inspector</h2>
+          <h2>检查器</h2>
           {selectedFile?.exists ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
         </div>
         {selectedFile ? (
@@ -618,11 +705,7 @@ function FileTable({
           </tr>
         )}
         {files.map((file) => (
-          <tr
-            className={selectedFileId === file.id ? "selected" : ""}
-            key={file.id}
-            onClick={() => onSelect(file.id)}
-          >
+          <tr className={selectedFileId === file.id ? "selected" : ""} key={file.id} onClick={() => onSelect(file.id)}>
             <td>
               <strong>{file.name}</strong>
               <small>{file.path}</small>
@@ -634,6 +717,99 @@ function FileTable({
         ))}
       </tbody>
     </table>
+  );
+}
+
+function AIView({
+  files,
+  selectedFile,
+  selectedFileId,
+  setSelectedFileId,
+  cloudConsent,
+  setCloudConsent,
+  aiResult,
+  aiHealth,
+  models,
+  permissions,
+  onHealth,
+  onClassify,
+  onRename
+}: {
+  files: FileRecord[];
+  selectedFile: FileRecord | undefined;
+  selectedFileId: number | null;
+  setSelectedFileId: (id: number) => void;
+  cloudConsent: boolean;
+  setCloudConsent: (value: boolean) => void;
+  aiResult: string;
+  aiHealth: AIHealth | null;
+  models: ModelTask[];
+  permissions: PermissionSnapshot;
+  onHealth: () => void;
+  onClassify: () => void;
+  onRename: () => void;
+}) {
+  const cloudPermission = permissions.permissions.find((item) => item.capability === "cloud_ai");
+  return (
+    <section className="split">
+      <div className="panel table-panel">
+        <div className="panel-heading">
+          <h2>AI 任务</h2>
+          <span>{cloudPermission?.effectiveEnabled ? "云端已授权" : "本地优先"}</span>
+        </div>
+        <div className="toolbar">
+          <select value={selectedFileId ?? ""} onChange={(event) => setSelectedFileId(Number(event.target.value))}>
+            <option value="">选择文件</option>
+            {files.map((file) => (
+              <option key={file.id} value={file.id}>
+                {file.name}
+              </option>
+            ))}
+          </select>
+          <button disabled={!selectedFile} onClick={onClassify} type="button">
+            <Sparkles size={16} />
+            AI 分类
+          </button>
+          <button disabled={!selectedFile} onClick={onRename} type="button">
+            <Bot size={16} />
+            命名建议
+          </button>
+          <button onClick={onHealth} type="button">
+            <RefreshCw size={16} />
+            检测模型
+          </button>
+        </div>
+        <label className="inline-check">
+          <input checked={cloudConsent} onChange={(event) => setCloudConsent(event.target.checked)} type="checkbox" />
+          本次允许云端 AI
+        </label>
+        <pre className="result-box">{aiResult}</pre>
+      </div>
+      <aside className="panel inspector">
+        <div className="panel-heading">
+          <h2>模型状态</h2>
+          <Cloud size={18} />
+        </div>
+        <div className="mini-list">
+          {models.map((model) => (
+            <div key={model.task}>
+              <span>{model.label}</span>
+              <strong>{model.enabled ? model.modelName ?? "未选择" : "关闭"}</strong>
+            </div>
+          ))}
+        </div>
+        {aiHealth && (
+          <div className="health-list">
+            {aiHealth.providers.map((provider) => (
+              <p key={provider.provider}>
+                <strong>{provider.provider}</strong>
+                <span>{provider.healthy ? "可用" : "不可用"} - {provider.message}</span>
+              </p>
+            ))}
+          </div>
+        )}
+      </aside>
+    </section>
   );
 }
 
@@ -654,13 +830,9 @@ function SearchView({
     <section className="panel stack">
       <div className="search-modes">
         <div>
-          <h2>Keyword</h2>
+          <h2>关键词</h2>
           <div className="path-row">
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="找上学期 SQL 实验报告"
-            />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="找上学期 SQL 实验报告" />
             <button onClick={onKeyword} type="button">
               <Search size={16} />
               搜索
@@ -668,14 +840,14 @@ function SearchView({
           </div>
         </div>
         <div>
-          <h2>Duplicates</h2>
+          <h2>重复文件</h2>
           <button onClick={onDuplicates} type="button">
             <Layers3 size={16} />
             检测重复文件
           </button>
         </div>
         <div className="disabled-mode">
-          <h2>Semantic</h2>
+          <h2>语义搜索</h2>
           <p>等待向量索引</p>
         </div>
       </div>
@@ -684,7 +856,7 @@ function SearchView({
         {duplicates.map((group) => (
           <section className="duplicate-group" key={group.hash}>
             <header>
-              <strong>{group.records.length} files</strong>
+              <strong>{group.records.length} 个文件</strong>
               <span>{formatBytes(group.wastedBytes)} 可清理</span>
             </header>
             {group.records.map((record) => (
@@ -711,16 +883,14 @@ function PlansView({
   togglePlanItem: (id: number) => void;
   onExecute: () => void;
 }) {
-  if (!plan) {
-    return <section className="panel empty-state">暂无整理计划</section>;
-  }
+  if (!plan) return <section className="panel empty-state">暂无整理计划</section>;
   const pending = plan.items.filter((item) => item.status === "pending");
   return (
     <section className="panel table-panel">
       <div className="panel-heading">
         <div>
           <h2>{plan.title}</h2>
-          <span>#{plan.id} · {plan.status}</span>
+          <span>#{plan.id} - {plan.status}</span>
         </div>
         <button disabled={pending.length === 0} onClick={onExecute} type="button">
           <Play size={16} />
@@ -755,9 +925,7 @@ function PlansView({
                 {!item.sourceExists && <span className="badge warn">源失联</span>}
                 {item.targetExists && <span className="badge soft">冲突改名</span>}
                 {item.status !== "pending" && <span className="badge">{item.status}</span>}
-                {item.sourceExists && !item.targetExists && item.status === "pending" && (
-                  <span className="badge ok">可执行</span>
-                )}
+                {item.sourceExists && !item.targetExists && item.status === "pending" && <span className="badge ok">可执行</span>}
               </td>
             </tr>
           ))}
@@ -767,13 +935,47 @@ function PlansView({
   );
 }
 
-function ActivityView({
-  operations,
-  onUndo
+function PermissionsView({
+  permissions,
+  cloudEnvEnabled,
+  onToggle
 }: {
-  operations: Operation[];
-  onUndo: (id: number) => void;
+  permissions: CapabilityPermission[];
+  cloudEnvEnabled: boolean;
+  onToggle: (capability: string, enabled: boolean) => void;
 }) {
+  return (
+    <section className="panel permission-grid">
+      <div className="panel-heading">
+        <div>
+          <h2>本地授权中心</h2>
+          <span>云端环境变量：{cloudEnvEnabled ? "已启用" : "未启用"}</span>
+        </div>
+      </div>
+      {permissions.map((permission) => (
+        <article className="permission-row" key={permission.capability}>
+          <div>
+            <strong>{permission.label}</strong>
+            <p>{permission.description}</p>
+            <span className={permission.effectiveEnabled ? "badge ok" : "badge warn"}>{permission.reason}</span>
+            {permission.requiresConfirmation && <span className="badge soft">需要 EXECUTE</span>}
+          </div>
+          <label className="switch">
+            <input
+              checked={permission.enabled}
+              disabled={permission.locked}
+              onChange={(event) => onToggle(permission.capability, event.target.checked)}
+              type="checkbox"
+            />
+            <span>{permission.locked ? <Lock size={14} /> : permission.enabled ? "启用" : "关闭"}</span>
+          </label>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function ActivityView({ operations, onUndo }: { operations: Operation[]; onUndo: (id: number) => void }) {
   return (
     <section className="panel table-panel">
       <table>
@@ -801,11 +1003,7 @@ function ActivityView({
               <td>{operation.targetPath ?? ""}</td>
               <td>{operation.status}</td>
               <td>
-                <button
-                  disabled={!operation.canUndo}
-                  onClick={() => onUndo(operation.id)}
-                  type="button"
-                >
+                <button disabled={!operation.canUndo} onClick={() => onUndo(operation.id)} type="button">
                   <RotateCcw size={16} />
                   撤销
                 </button>

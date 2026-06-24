@@ -62,6 +62,47 @@ export type ModelTask = {
   cloudEnabled: boolean;
 };
 
+export type CapabilityPermission = {
+  capability: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+  effectiveEnabled: boolean;
+  requiresConfirmation: boolean;
+  locked: boolean;
+  reason: string;
+};
+
+export type PermissionSnapshot = {
+  cloudEnvEnabled: boolean;
+  permissions: CapabilityPermission[];
+};
+
+export type AIHealth = {
+  providers: Array<{
+    provider: string;
+    healthy: boolean;
+    message: string;
+    version?: string | null;
+  }>;
+  tasks: ModelTask[];
+  permissions: PermissionSnapshot;
+};
+
+export type AIClassifyResponse = {
+  fileId: number;
+  category: string;
+  suggestedName: string;
+  confidence: number;
+  reason: string;
+};
+
+export type AIRenameResponse = {
+  fileId: number;
+  suggestedName: string;
+  reason: string;
+};
+
 export type Overview = {
   fileCount: number;
   scanRoots: Array<{ id: number; path: string; last_scanned_at?: string | null }>;
@@ -70,6 +111,7 @@ export type Overview = {
   duplicateGroupCount: number;
   latestPlan: Plan | null;
   ai: ModelTask[];
+  permissions?: PermissionSnapshot;
 };
 
 export type DuplicateGroup = {

@@ -13,6 +13,7 @@ from diskwise.database.repositories.plan_repository import (
     PlanRepository,
 )
 from diskwise.executor.service import FileExecutor
+from diskwise.permissions.service import Capability, PermissionService
 
 
 CONFIRMATION_TEXT = "EXECUTE"
@@ -34,6 +35,7 @@ class PlanExecutionService:
         self._files = FileRepository(database_path)
         self._plans = PlanRepository(database_path)
         self._executor = FileExecutor()
+        self._permissions = PermissionService(database_path)
 
     def execute_plan(
         self,
@@ -42,6 +44,7 @@ class PlanExecutionService:
         selected_item_ids: list[int] | None = None,
         confirmation: str,
     ) -> list[PlanExecutionResult]:
+        self._permissions.assert_enabled(Capability.EXECUTE_PLANS)
         if confirmation != CONFIRMATION_TEXT:
             raise ValueError(f"请输入 {CONFIRMATION_TEXT} 以确认执行")
 
@@ -64,6 +67,7 @@ class PlanExecutionService:
         *,
         confirmation: str,
     ) -> PlanExecutionResult:
+        self._permissions.assert_enabled(Capability.UNDO_OPERATIONS)
         if confirmation != CONFIRMATION_TEXT:
             raise ValueError(f"请输入 {CONFIRMATION_TEXT} 以确认撤销")
 

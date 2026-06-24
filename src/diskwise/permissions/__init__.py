@@ -1,0 +1,2 @@
+"""Local capability permissions."""
+

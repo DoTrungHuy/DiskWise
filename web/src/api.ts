@@ -1,10 +1,14 @@
 import type {
+  AIClassifyResponse,
+  AIHealth,
+  AIRenameResponse,
   DuplicateGroup,
   ExecutionResult,
   FileRecord,
   ModelTask,
   Operation,
   Overview,
+  PermissionSnapshot,
   Plan
 } from "./types";
 
@@ -71,5 +75,22 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ confirmation })
     }),
-  models: () => request<{ tasks: ModelTask[] }>("/api/settings/models")
+  models: () => request<{ tasks: ModelTask[] }>("/api/settings/models"),
+  permissions: () => request<PermissionSnapshot>("/api/permissions"),
+  updatePermission: (capability: string, enabled: boolean) =>
+    request<PermissionSnapshot>(`/api/permissions/${capability}`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabled })
+    }),
+  aiHealth: () => request<AIHealth>("/api/ai/health"),
+  classify: (fileId: number, cloudConsent = false) =>
+    request<AIClassifyResponse>("/api/ai/classify", {
+      method: "POST",
+      body: JSON.stringify({ fileId, cloudConsent })
+    }),
+  rename: (fileId: number, cloudConsent = false) =>
+    request<AIRenameResponse>("/api/ai/rename", {
+      method: "POST",
+      body: JSON.stringify({ fileId, cloudConsent })
+    })
 };

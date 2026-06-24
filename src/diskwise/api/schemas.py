@@ -28,3 +28,17 @@ class ExecutePlanRequest(BaseModel):
 
 class UndoOperationRequest(BaseModel):
     confirmation: str
+
+
+class PermissionUpdateRequest(BaseModel):
+    enabled: bool
+
+
+class AIClassifyRequest(BaseModel):
+    file_id: int = Field(alias="fileId")
+    cloud_consent: bool = Field(default=False, alias="cloudConsent")
+
+
+class AIRenameRequest(BaseModel):
+    file_id: int = Field(alias="fileId")
+    cloud_consent: bool = Field(default=False, alias="cloudConsent")
